@@ -1,0 +1,2 @@
+smtp.office365.com 587 hachembraiek88@gmail.com a1b2c328886446
+smtp.office365.com 587 yousseffgammeover@gmail.com rocketleague321*
