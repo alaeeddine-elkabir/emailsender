@@ -99,9 +99,21 @@ def read_recipients_from_file(file_path):
 
 def read_email_content(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
-        content = file.read()
+        content = file.readlines()
     
-    return content
+    sender_name = subject = body = None
+    for line in content:
+        if line.startswith("from:"):
+            sender_name = line.split("from:")[1].strip()
+        elif line.startswith("subject:"):
+            subject = line.split("subject:")[1].strip()
+        elif line.startswith("body:"):
+            body = line.split("body:")[1].strip()
+    
+    if not (sender_name and subject and body):
+        raise ValueError("Sender's name, subject, and body must be provided in email_content.txt")
+    
+    return sender_name, subject, body
 
 def read_placeholder_from_file(file_path):
     placeholders = []
@@ -110,7 +122,7 @@ def read_placeholder_from_file(file_path):
             placeholders.append(line.strip())
     return cycle(placeholders)
 
-def send_emails_for_config(email_sender, configurations, recipient_emails, email_content, sender_name, email_subject, delay_time, num_connections, placeholder_files, max_retries=3):
+def send_emails_for_config(email_sender, configurations, recipient_emails, sender_name, email_subject, email_body, delay_time, num_connections, placeholder_files, max_retries=3):
     while not email_sender.should_stop_execution() and max_retries > 0:
         email_sender.failed_emails = []  # Reset failed emails list
         with ThreadPoolExecutor(max_workers=num_connections) as executor:
@@ -136,7 +148,7 @@ def send_emails_for_config(email_sender, configurations, recipient_emails, email
                     config = random.choice(configurations)  # Select a random SMTP configuration
 
                     # Replace placeholders with actual values for each recipient
-                    personalized_email_content = email_content
+                    personalized_email_content = email_body
                     for i, placeholder_cycle in enumerate(placeholder_cycles):
                         tag = f'[placeholder{i + 1}]'
                         personalized_email_content = personalized_email_content.replace(tag, next(placeholder_cycle))
@@ -164,7 +176,7 @@ def send_emails_for_config(email_sender, configurations, recipient_emails, email
         # Resend emails to remaining recipients
         while recipient_emails:
             email_sender.failed_emails = []  # Reset failed emails list
-            send_emails_for_config(email_sender, configurations, recipient_emails, email_content, sender_name, email_subject, delay_time, num_connections, placeholder_files, max_retries=1)
+            send_emails_for_config(email_sender, configurations, recipient_emails, sender_name, email_subject, email_body, delay_time, num_connections, placeholder_files, max_retries=1)
             if email_sender.sent_emails == email_sender.total_emails:
                 break
 
@@ -176,13 +188,10 @@ if __name__ == "__main__":
 
     smtp_configs = read_configurations_from_file(configurations_file)
     recipient_emails = read_recipients_from_file(recipients_file)
-    email_content = read_email_content(email_content_file)
+    sender_name, email_subject, email_body = read_email_content(email_content_file)
     placeholder_files = os.listdir(placeholders_folder)
 
     total_emails = len(recipient_emails)
-
-    sender_name = input("Enter the sender's name: ")
-    email_subject = input("Enter the email subject: ")
 
     delay_input = input("Enter the delay time between batches of connections (in seconds), or leave empty for no delay: ")
     connection_input = input("Enter the number of concurrent connections, or leave empty for default (100): ")
@@ -194,7 +203,7 @@ if __name__ == "__main__":
         print(f"Sending emails with subject: {email_subject}...")
 
         email_sender = EmailSender(total_emails)
-        send_emails_for_config(email_sender, smtp_configs, recipient_emails, email_content, sender_name, email_subject, delay_time, num_connections, placeholder_files)
+        send_emails_for_config(email_sender, smtp_configs, recipient_emails, sender_name, email_subject, email_body, delay_time, num_connections, placeholder_files)
 
         elapsed_time = email_sender.get_elapsed_time()
         total_sent_emails = email_sender.sent_emails
