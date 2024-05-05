@@ -193,11 +193,9 @@ if __name__ == "__main__":
 
     total_emails = len(recipient_emails)
 
-    delay_input = input("Enter the delay time between batches of connections (in seconds), or leave empty for no delay: ")
-    connection_input = input("Enter the number of concurrent connections, or leave empty for default (100): ")
-
-    delay_time = float(delay_input) if delay_input else None
-    num_connections = int(connection_input) if connection_input else 100
+    # Set default values for delay time and number of connections
+    delay_time = None  # Set to None for no delay, or specify a value in seconds
+    num_connections = 100  # Default number of concurrent connections
 
     try:
         print(f"Sending emails with subject: {email_subject}...")
