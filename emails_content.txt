@@ -1,1 +1,1 @@
-[placeholder1]<br>
+"from:test", "subject:test", "body:[placeholder1]<br>"
