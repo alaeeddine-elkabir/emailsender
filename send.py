@@ -29,7 +29,7 @@ class EmailSender:
         self.sent_emails = 0
         self.failed_emails = []
         self.sent_lock = threading.Lock()
-        self.stop_execution = False
+        self.stop_execution = threading.Event()  # Event to signal stop execution
         self.start_time = time.time()
 
     def send_email(self, smtp_server, smtp_port, sender_email, sender_password, recipient_email, subject, body, sender_name, proxy=None):
@@ -68,11 +68,11 @@ class EmailSender:
             print(f"Error sending email to {recipient_email}: {e}")
             self.failed_emails.append(recipient_email)
 
-        if self.sent_emails >= self.total_emails:
-            self.stop_execution = True
-
     def should_stop_execution(self):
-        return self.stop_execution
+        return self.stop_execution.is_set()
+
+    def stop_execution_signal(self):
+        self.stop_execution.set()  # Set the stop execution event
 
     def get_elapsed_time(self):
         return time.time() - self.start_time
@@ -167,18 +167,13 @@ def send_emails_for_config(email_sender, configurations, recipient_emails, sende
                 except Exception as e:
                     print(f"Error: {e}")
 
-        # Retry sending emails to failed recipients
-        recipient_emails = email_sender.failed_emails
+        # Decrement max_retries
         max_retries -= 1
 
-    if email_sender.sent_emails < email_sender.total_emails:
+    # Check if there are remaining failed emails
+    if email_sender.failed_emails:
         print(Fore.RED + "Failed to send emails to all recipients." + Style.RESET_ALL)
-        # Resend emails to remaining recipients
-        while recipient_emails:
-            email_sender.failed_emails = []  # Reset failed emails list
-            send_emails_for_config(email_sender, configurations, recipient_emails, sender_name, email_subject, email_body, delay_time, num_connections, placeholder_files, max_retries=1)
-            if email_sender.sent_emails == email_sender.total_emails:
-                break
+        email_sender.failed_emails = []  # Reset failed emails list
 
 if __name__ == "__main__":
     configurations_file = "configurations_orange.txt"
@@ -211,4 +206,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
     finally:
+        email_sender.stop_execution_signal()  # Signal to stop execution
         print("Stopping further execution.")
